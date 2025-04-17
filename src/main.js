@@ -1,25 +1,65 @@
-const form = document.querySelector('.form');
-const input = form.elements['search-text'];
+// Описаний у документації
+import iziToast from 'izitoast';
+// Додатковий імпорт стилів
+import 'izitoast/dist/css/iziToast.min.css';
 
-form.addEventListener('submit', async event => {
+import { getImagesByQuery } from './js/pixabay-api';
+import {
+  createGallery,
+  clearGallery,
+  showLoader,
+  hideLoader,
+} from './js/render-functions';
+
+const form = document.querySelector('.form');
+const searchInput = document.querySelector('input');
+
+form.addEventListener('submit', handleSubmit);
+
+function handleSubmit(event) {
   event.preventDefault();
 
-  const query = input.value.trim();
+  const enteredInput = searchInput.value.trim();
 
-  // Перевірка на порожній рядок
-  if (query === '') {
-    alert('Будь ласка, введіть пошукове слово!');
+  if (!enteredInput) {
+    iziToast.warning({
+      position: 'topRight',
+      title: 'Warning',
+      message: 'Please enter a search query',
+    });
+    searchInput.focus();
     return;
   }
 
-  try {
-    // Приклад запиту – змінити на свій API
-    const response = await axios.get(
-      `https://api.example.com/search?q=${encodeURIComponent(query)}`
-    );
-    console.log('Результати пошуку:', response.data);
-    // Тут можна додати код для виводу зображень
-  } catch (error) {
-    console.error('Помилка при пошуку:', error);
-  }
-});
+  showLoader();
+  clearGallery();
+
+  getImagesByQuery(enteredInput)
+    .then(response => {
+      return response.data;
+    })
+    .then(response => {
+      if (!response.hits || response.hits.length === 0) {
+        iziToast.warning({
+          position: 'topRight',
+          title: 'Warning',
+          message:
+            'Sorry, there are no images matching your search query. Please try again!',
+        });
+        return;
+      }
+      createGallery(response.hits);
+    })
+    .catch(error => {
+      iziToast.error({
+        position: 'topRight',
+        title: 'Error',
+        message: 'Failed to fetch images. Please try again later.',
+      });
+      console.error('Error:', error);
+    })
+    .finally(() => {
+      hideLoader();
+      searchInput.value = '';
+    });
+}
